@@ -1,5 +1,5 @@
 """
-AI Service for IVOR - Handles LLM interactions with DeepSeek and Qwen
+AI Service for IVOR - No-cost LLM integrations with Mixtral via Hugging Face and Groq
 """
 
 import httpx
@@ -25,17 +25,13 @@ class AIResponse:
     confidence: float = 0.8
 
 class AIService:
-    """AI Service for processing messages and generating responses"""
+    """AI Service with no-cost Mixtral integration"""
     
     def __init__(self):
         self.knowledge_base = KnowledgeBase()
-        self.deepseek_client = self._create_http_client()
+        self.http_client = httpx.AsyncClient(timeout=30.0)
         self.system_prompt = self._create_system_prompt()
         
-    def _create_http_client(self) -> httpx.AsyncClient:
-        """Create HTTP client for API calls"""
-        return httpx.AsyncClient(timeout=30.0)
-    
     def _create_system_prompt(self) -> str:
         """Create system prompt aligned with BLKOUT values"""
         return f"""You are IVOR, BLKOUT's community AI assistant. You embody our core values:
@@ -71,13 +67,13 @@ Community context: BLKOUT is building cooperative ownership together through dia
             # Prepare context for AI
             enhanced_context = self._prepare_context(message, knowledge_results, context)
             
-            # Try DeepSeek first (primary LLM)
-            response = await self._call_deepseek(message, enhanced_context)
+            # Try Groq first (fastest)
+            response = await self._call_groq(message, enhanced_context)
             
             if not response:
-                # Fallback to Qwen if DeepSeek fails
-                logger.warning("DeepSeek failed, falling back to Qwen")
-                response = await self._call_qwen(message, enhanced_context)
+                # Fallback to Hugging Face
+                logger.info("Groq failed, trying Hugging Face")
+                response = await self._call_huggingface(message, enhanced_context)
             
             if not response:
                 # Final fallback to simple response
@@ -109,11 +105,11 @@ Community context: BLKOUT is building cooperative ownership together through dia
             
         return enhanced_context
     
-    async def _call_deepseek(self, message: str, context: Dict[str, Any]) -> Optional[AIResponse]:
-        """Call DeepSeek API"""
+    async def _call_groq(self, message: str, context: Dict[str, Any]) -> Optional[AIResponse]:
+        """Call Groq API with Mixtral 8x7B (fastest option)"""
         
-        if not settings.DEEPSEEK_API_KEY:
-            logger.warning("DeepSeek API key not configured")
+        if not settings.GROQ_API_KEY:
+            logger.warning("Groq API key not configured")
             return None
             
         try:
@@ -130,7 +126,7 @@ Community context: BLKOUT is building cooperative ownership together through dia
             ]
             
             payload = {
-                "model": "deepseek-chat",
+                "model": settings.GROQ_MODEL,
                 "messages": messages,
                 "temperature": 0.7,
                 "max_tokens": 500,
@@ -138,12 +134,12 @@ Community context: BLKOUT is building cooperative ownership together through dia
             }
             
             headers = {
-                "Authorization": f"Bearer {settings.DEEPSEEK_API_KEY}",
+                "Authorization": f"Bearer {settings.GROQ_API_KEY}",
                 "Content-Type": "application/json"
             }
             
-            response = await self.deepseek_client.post(
-                f"{settings.DEEPSEEK_BASE_URL}/chat/completions",
+            response = await self.http_client.post(
+                "https://api.groq.com/openai/v1/chat/completions",
                 json=payload,
                 headers=headers
             )
@@ -157,22 +153,22 @@ Community context: BLKOUT is building cooperative ownership together through dia
                     sources=context.get("relevant_knowledge", []),
                     suggestions=self._generate_suggestions(message, ai_message),
                     timestamp=datetime.now(),
-                    model_used="deepseek-chat",
+                    model_used="groq-mixtral-8x7b",
                     confidence=0.9
                 )
             else:
-                logger.error(f"DeepSeek API error: {response.status_code} - {response.text}")
+                logger.error(f"Groq API error: {response.status_code} - {response.text}")
                 return None
                 
         except Exception as e:
-            logger.error(f"DeepSeek API call failed: {str(e)}")
+            logger.error(f"Groq API call failed: {str(e)}")
             return None
     
-    async def _call_qwen(self, message: str, context: Dict[str, Any]) -> Optional[AIResponse]:
-        """Call Qwen API as fallback"""
+    async def _call_huggingface(self, message: str, context: Dict[str, Any]) -> Optional[AIResponse]:
+        """Call Hugging Face Inference API with Mixtral"""
         
-        if not settings.QWEN_API_KEY:
-            logger.warning("Qwen API key not configured")
+        if not settings.HUGGINGFACE_API_TOKEN:
+            logger.warning("Hugging Face API token not configured")
             return None
             
         try:
@@ -183,49 +179,62 @@ Community context: BLKOUT is building cooperative ownership together through dia
                 for item in context["relevant_knowledge"]:
                     knowledge_context += f"- {item.get('content', '')[:200]}...\\n"
             
+            # Format prompt for Mixtral
+            formatted_prompt = f"""<s>[INST] {self.system_prompt}
+
+User message: {message}{knowledge_context} [/INST]"""
+            
             payload = {
-                "model": "qwen-turbo",
-                "input": {
-                    "messages": [
-                        {"role": "system", "content": self.system_prompt},
-                        {"role": "user", "content": f"{message}{knowledge_context}"}
-                    ]
-                },
+                "inputs": formatted_prompt,
                 "parameters": {
+                    "max_new_tokens": 500,
                     "temperature": 0.7,
-                    "max_tokens": 500
+                    "top_p": 0.9,
+                    "return_full_text": False
                 }
             }
             
             headers = {
-                "Authorization": f"Bearer {settings.QWEN_API_KEY}",
+                "Authorization": f"Bearer {settings.HUGGINGFACE_API_TOKEN}",
                 "Content-Type": "application/json"
             }
             
-            response = await self.deepseek_client.post(
-                f"{settings.QWEN_BASE_URL}/services/aigc/text-generation/generation",
+            response = await self.http_client.post(
+                f"https://api-inference.huggingface.co/models/{settings.MIXTRAL_MODEL}",
                 json=payload,
                 headers=headers
             )
             
             if response.status_code == 200:
                 result = response.json()
-                ai_message = result["output"]["text"]
+                
+                # Handle different response formats
+                if isinstance(result, list) and len(result) > 0:
+                    ai_message = result[0].get("generated_text", "")
+                elif isinstance(result, dict):
+                    ai_message = result.get("generated_text", "")
+                else:
+                    ai_message = str(result)
+                
+                # Clean up the response
+                ai_message = ai_message.strip()
+                if not ai_message:
+                    return None
                 
                 return AIResponse(
                     message=ai_message,
                     sources=context.get("relevant_knowledge", []),
                     suggestions=self._generate_suggestions(message, ai_message),
                     timestamp=datetime.now(),
-                    model_used="qwen-turbo",
-                    confidence=0.8
+                    model_used="hf-mixtral-8x7b",
+                    confidence=0.85
                 )
             else:
-                logger.error(f"Qwen API error: {response.status_code} - {response.text}")
+                logger.error(f"Hugging Face API error: {response.status_code} - {response.text}")
                 return None
                 
         except Exception as e:
-            logger.error(f"Qwen API call failed: {str(e)}")
+            logger.error(f"Hugging Face API call failed: {str(e)}")
             return None
     
     def _generate_suggestions(self, user_message: str, ai_response: str) -> List[str]:

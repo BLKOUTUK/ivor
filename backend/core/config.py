@@ -18,14 +18,20 @@ class Settings(BaseSettings):
         "https://blkoutuk.com"
     ]
     
-    # AI API Configuration
+    # AI API Configuration (No Cost Primary)
+    HUGGINGFACE_API_TOKEN: str = os.getenv("HUGGINGFACE_API_TOKEN", "")
+    GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
+    
+    # Fallback AI APIs (Optional)
     DEEPSEEK_API_KEY: str = os.getenv("DEEPSEEK_API_KEY", "")
-    DEEPSEEK_BASE_URL: str = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1")
-    
     QWEN_API_KEY: str = os.getenv("QWEN_API_KEY", "")
-    QWEN_BASE_URL: str = os.getenv("QWEN_BASE_URL", "https://dashscope.aliyuncs.com/api/v1")
     
+    # Embeddings API
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+    
+    # Model Configuration
+    MIXTRAL_MODEL: str = "mistralai/Mixtral-8x7B-Instruct-v0.1"
+    GROQ_MODEL: str = "llama-3.3-70b-versatile"
     
     # Database Configuration
     DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql://user:password@localhost:5432/ivor_db")
