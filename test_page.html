@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>IVOR Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background: #0a0a0a; color: white; }
+        .status { padding: 20px; margin: 20px 0; border-radius: 10px; }
+        .success { background: #28a745; }
+        .error { background: #dc3545; }
+        .warning { background: #ffc107; color: black; }
+        button { padding: 10px 20px; margin: 10px; background: #FF0040; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #FF4500; }
+        #response { padding: 20px; background: #1a1a1a; border-radius: 10px; margin: 20px 0; max-height: 300px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <h1>🤖 IVOR Integration Test</h1>
+    
+    <div id="website-status" class="status">Checking BLKOUT website...</div>
+    <div id="backend-status" class="status">Checking IVOR backend...</div>
+    
+    <h2>Quick Test</h2>
+    <button onclick="testChat('What is BLKOUT about?')">Test: What is BLKOUT about?</button>
+    <button onclick="testChat('Hello IVOR')">Test: Hello IVOR</button>
+    
+    <div id="response"></div>
+    
+    <h2>Manual Test</h2>
+    <p><strong>BLKOUT Website:</strong> <a href="http://localhost:3003" target="_blank">http://localhost:3003</a></p>
+    <p><strong>IVOR Backend:</strong> <a href="http://localhost:8000/health/" target="_blank">http://localhost:8000/health/</a></p>
+    
+    <script>
+        // Check website status
+        fetch('http://localhost:3003')
+            .then(response => {
+                document.getElementById('website-status').innerHTML = '✅ BLKOUT Website: Running on http://localhost:3003';
+                document.getElementById('website-status').className = 'status success';
+            })
+            .catch(error => {
+                document.getElementById('website-status').innerHTML = '❌ BLKOUT Website: Not accessible';
+                document.getElementById('website-status').className = 'status error';
+            });
+        
+        // Check backend status
+        fetch('http://localhost:8000/health/')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('backend-status').innerHTML = `✅ IVOR Backend: ${data.status} (${data.model})`;
+                document.getElementById('backend-status').className = 'status success';
+            })
+            .catch(error => {
+                document.getElementById('backend-status').innerHTML = '❌ IVOR Backend: Not accessible';
+                document.getElementById('backend-status').className = 'status error';
+            });
+        
+        function testChat(message) {
+            document.getElementById('response').innerHTML = '🤔 Sending message to IVOR...';
+            
+            fetch('http://localhost:8000/chat/message', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: message, session_id: 'test-page' })
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('response').innerHTML = `
+                    <strong>You:</strong> ${message}<br><br>
+                    <strong>IVOR:</strong> ${data.message}<br><br>
+                    <small>Model: ${data.model_used} | Confidence: ${data.confidence}</small>
+                `;
+            })
+            .catch(error => {
+                document.getElementById('response').innerHTML = `❌ Error: ${error.message}`;
+            });
+        }
+    </script>
+</body>
+</html>
