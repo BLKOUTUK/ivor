@@ -42,7 +42,7 @@ class Settings(BaseSettings):
     CHROMA_COLLECTION_NAME: str = os.getenv("CHROMA_COLLECTION_NAME", "blkout_community_knowledge")
     
     # Events Calendar Configuration
-    EVENTS_CALENDAR_API_URL: str = os.getenv("EVENTS_CALENDAR_API_URL", "http://localhost:5173/api.html")
+    EVENTS_CALENDAR_API_URL: str = os.getenv("EVENTS_CALENDAR_API_URL", "http://localhost:3001")
     EVENTS_CALENDAR_API_KEY: str = os.getenv("EVENTS_CALENDAR_API_KEY", "")
     
     # Community Configuration
