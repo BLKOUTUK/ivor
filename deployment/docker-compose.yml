@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  ivor-backend:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=True
+      - LOG_LEVEL=INFO
+      - DATABASE_URL=postgresql://ivor:ivor123@postgres:5432/ivor_db
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - ./chroma_db:/app/chroma_db
+      - ./.env:/app/.env
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=ivor_db
+      - POSTGRES_USER=ivor
+      - POSTGRES_PASSWORD=ivor123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
