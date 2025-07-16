@@ -8,9 +8,12 @@ import logging
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
+from sqlalchemy.orm import Session
 
 from core.config import settings
 from core.knowledge_base import KnowledgeBase
+from services.user_context_service import user_context_service
+from services.consent_manager import consent_manager
 
 logger = logging.getLogger(__name__)
 
@@ -53,19 +56,35 @@ Community context: BLKOUT is building cooperative ownership together through dia
         self, 
         message: str, 
         session_id: str,
-        context: Optional[Dict[str, Any]] = None
+        context: Optional[Dict[str, Any]] = None,
+        user_email: Optional[str] = None,
+        db: Optional[Session] = None
     ) -> AIResponse:
         """Process user message and generate AI response"""
         
         try:
+            # Get user context from database (respects privacy consent)
+            user_context = None
+            if db and user_email:
+                user_context = await user_context_service.get_user_context(
+                    email=user_email,
+                    session_id=session_id,
+                    db=db
+                )
+            
             # Retrieve relevant knowledge from knowledge base
             knowledge_results = await self.knowledge_base.search(
                 query=message,
                 limit=3
             )
             
-            # Prepare context for AI
-            enhanced_context = self._prepare_context(message, knowledge_results, context)
+            # Prepare enhanced context for AI
+            enhanced_context = self._prepare_context(
+                message, 
+                knowledge_results, 
+                context, 
+                user_context
+            )
             
             # Try Groq first (fastest)
             response = await self._call_groq(message, enhanced_context)
@@ -89,7 +108,8 @@ Community context: BLKOUT is building cooperative ownership together through dia
         self, 
         message: str, 
         knowledge_results: List[Dict], 
-        context: Optional[Dict] = None
+        context: Optional[Dict] = None,
+        user_context: Optional[Dict] = None
     ) -> Dict[str, Any]:
         """Prepare enhanced context for AI"""
         
@@ -102,6 +122,14 @@ Community context: BLKOUT is building cooperative ownership together through dia
         
         if context:
             enhanced_context.update(context)
+        
+        # Add user context for personalization
+        if user_context:
+            enhanced_context["user_context"] = user_context
+            
+            # Generate personalization prompts
+            personalization_prompts = user_context_service.get_personalization_prompts(user_context)
+            enhanced_context["personalization_prompts"] = personalization_prompts
             
         return enhanced_context
     
@@ -120,8 +148,20 @@ Community context: BLKOUT is building cooperative ownership together through dia
                 for item in context["relevant_knowledge"]:
                     knowledge_context += f"- {item.get('content', '')[:200]}...\\n"
             
+            # Prepare personalization context
+            personalization_context = ""
+            if context.get("personalization_prompts"):
+                personalization_context = "\\n\\nPersonalization context:\\n"
+                for prompt in context["personalization_prompts"]:
+                    personalization_context += f"- {prompt}\\n"
+            
+            # Build enhanced system prompt
+            enhanced_system_prompt = self.system_prompt
+            if personalization_context:
+                enhanced_system_prompt += f"\\n\\nUser Context for Personalization:{personalization_context}"
+            
             messages = [
-                {"role": "system", "content": self.system_prompt},
+                {"role": "system", "content": enhanced_system_prompt},
                 {"role": "user", "content": f"{message}{knowledge_context}"}
             ]
             

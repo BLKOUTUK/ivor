@@ -1,0 +1,418 @@
+{
+  "name": "BLKOUT Community Engagement Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 2
+            }
+          ]
+        }
+      },
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "url": "http://localhost:8000/reports/current",
+        "options": {
+          "headers": {
+            "Content-Type": "application/json"
+          }
+        }
+      },
+      "name": "Get Community Health",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{$json.report.community_health.community_health_score}}",
+              "operation": "smaller",
+              "value2": 70
+            }
+          ]
+        }
+      },
+      "name": "Health Score Check",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "url": "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK",
+        "jsonParameters": true,
+        "options": {
+          "headers": {
+            "Content-Type": "application/json"
+          }
+        },
+        "bodyParametersJson": "{\n  \"text\": \"🚨 BLKOUT Community Health Alert\",\n  \"attachments\": [\n    {\n      \"color\": \"warning\",\n      \"fields\": [\n        {\n          \"title\": \"Community Health Score\",\n          \"value\": \"{{$node['Get Community Health'].json.report.community_health.community_health_score}}\",\n          \"short\": true\n        },\n        {\n          \"title\": \"Active Profiles\",\n          \"value\": \"{{$node['Get Community Health'].json.report.community_growth.total_active_profiles}}\",\n          \"short\": true\n        },\n        {\n          \"title\": \"New Profiles This Month\",\n          \"value\": \"{{$node['Get Community Health'].json.report.community_growth.new_profiles_this_month}}\",\n          \"short\": true\n        },\n        {\n          \"title\": \"IVOR Interactions\",\n          \"value\": \"{{$node['Get Community Health'].json.report.ivor_interactions.total_interactions}}\",\n          \"short\": true\n        }\n      ],\n      \"footer\": \"BLKOUT Community Analytics\",\n      \"ts\": \"{{Math.floor(Date.now() / 1000)}}\"\n    }\n  ]\n}"
+      },
+      "name": "Send Health Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        900,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "url": "http://localhost:8000/reports/recommendations",
+        "options": {
+          "headers": {
+            "Content-Type": "application/json"
+          }
+        }
+      },
+      "name": "Get Recommendations",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        900,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Process recommendations for social media content\nconst recommendations = $input.all()[0].json.recommendations;\nconst highPriorityRecs = recommendations.filter(rec => rec.priority === 'high');\n\nif (highPriorityRecs.length > 0) {\n  const content = {\n    platform: 'twitter',\n    message: `🚀 Community Update: ${highPriorityRecs[0].title}\\n\\n${highPriorityRecs[0].description}\\n\\n#BLKOUTCommunity #BlackQueerLiberation`,\n    scheduled_time: new Date(Date.now() + 3600000).toISOString() // 1 hour from now\n  };\n  \n  return [{ json: content }];\n}\n\nreturn [];"
+      },
+      "name": "Generate Social Content",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "requestMethod": "POST",
+        "url": "https://api.twitter.com/2/tweets",
+        "authentication": "headerAuth",
+        "headerAuth": {
+          "name": "Authorization",
+          "value": "Bearer YOUR_TWITTER_BEARER_TOKEN"
+        },
+        "jsonParameters": true,
+        "bodyParametersJson": "{\n  \"text\": \"{{$json.message}}\"\n}"
+      },
+      "name": "Post to Twitter",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        1340,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "action",
+              "value": "check_new_members"
+            }
+          ]
+        }
+      },
+      "name": "Check New Members",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [
+        460,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "url": "http://localhost:8000/profiles",
+        "options": {
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "queryParameters": {
+            "limit": "10",
+            "recent": "true"
+          }
+        }
+      },
+      "name": "Get Recent Profiles",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        680,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Process new members for welcome sequence\nconst profiles = $input.all()[0].json.profiles || [];\nconst newMembers = profiles.filter(profile => {\n  const createdAt = new Date(profile.created_at);\n  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);\n  return createdAt > oneDayAgo;\n});\n\nreturn newMembers.map(member => ({\n  json: {\n    email: member.email,\n    name: member.name,\n    pathway: member.liberation_pathway,\n    welcome_type: 'new_member',\n    personalized_message: `Welcome to BLKOUT, ${member.name}! We're excited to have you join our community focused on Black queer liberation.`\n  }\n}));"
+      },
+      "name": "Process New Members",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        900,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "requestMethod": "POST",
+        "url": "https://api.mailchimp.com/3.0/campaigns",
+        "authentication": "headerAuth",
+        "headerAuth": {
+          "name": "Authorization",
+          "value": "apikey YOUR_MAILCHIMP_API_KEY"
+        },
+        "jsonParameters": true,
+        "bodyParametersJson": "{\n  \"type\": \"regular\",\n  \"recipients\": {\n    \"list_id\": \"YOUR_LIST_ID\",\n    \"segment_opts\": {\n      \"match\": \"all\",\n      \"conditions\": [\n        {\n          \"condition_type\": \"EmailAddress\",\n          \"field\": \"EMAIL\",\n          \"op\": \"is\",\n          \"value\": \"{{$json.email}}\"\n        }\n      ]\n    }\n  },\n  \"settings\": {\n    \"subject_line\": \"Welcome to BLKOUT Community! 🚀\",\n    \"from_name\": \"BLKOUT Team\",\n    \"reply_to\": \"community@blkoutuk.com\"\n  }\n}"
+      },
+      "name": "Send Welcome Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "action",
+              "value": "ivor_engagement_analysis"
+            }
+          ]
+        }
+      },
+      "name": "IVOR Analysis",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [
+        460,
+        700
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "url": "http://localhost:8000/chat/analytics",
+        "options": {
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "queryParameters": {
+            "period": "daily"
+          }
+        }
+      },
+      "name": "Get IVOR Analytics",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        680,
+        700
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Analyze IVOR interaction patterns\nconst analytics = $input.all()[0].json;\nconst topTopics = analytics.topic_distribution || {};\nconst responseTime = analytics.average_response_time_ms || 0;\n\n// Identify areas needing attention\nconst insights = [];\n\n// Check for common support topics\nif (topTopics.housing > 5) {\n  insights.push({\n    topic: 'housing',\n    priority: 'high',\n    action: 'Create housing resource guide',\n    count: topTopics.housing\n  });\n}\n\nif (topTopics.mental_health > 3) {\n  insights.push({\n    topic: 'mental_health',\n    priority: 'high',\n    action: 'Expand mental health resources',\n    count: topTopics.mental_health\n  });\n}\n\nif (responseTime > 1000) {\n  insights.push({\n    topic: 'performance',\n    priority: 'medium',\n    action: 'Optimize IVOR response time',\n    response_time: responseTime\n  });\n}\n\nreturn insights.map(insight => ({ json: insight }));"
+      },
+      "name": "Analyze IVOR Patterns",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        900,
+        700
+      ]
+    },
+    {
+      "parameters": {
+        "requestMethod": "POST",
+        "url": "https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/values/Analytics!A:D:append",
+        "authentication": "oAuth2",
+        "jsonParameters": true,
+        "bodyParametersJson": "{\n  \"range\": \"Analytics!A:D\",\n  \"majorDimension\": \"ROWS\",\n  \"values\": [\n    [\n      \"{{new Date().toISOString()}}\",\n      \"{{$json.topic}}\",\n      \"{{$json.priority}}\",\n      \"{{$json.action}}\"\n    ]\n  ]\n}"
+      },
+      "name": "Log to Google Sheets",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        700
+      ]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Community Health",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Check New Members",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "IVOR Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Community Health": {
+      "main": [
+        [
+          {
+            "node": "Health Score Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Health Score Check": {
+      "main": [
+        [
+          {
+            "node": "Send Health Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Recommendations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Recommendations": {
+      "main": [
+        [
+          {
+            "node": "Generate Social Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Social Content": {
+      "main": [
+        [
+          {
+            "node": "Post to Twitter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check New Members": {
+      "main": [
+        [
+          {
+            "node": "Get Recent Profiles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Recent Profiles": {
+      "main": [
+        [
+          {
+            "node": "Process New Members",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process New Members": {
+      "main": [
+        [
+          {
+            "node": "Send Welcome Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IVOR Analysis": {
+      "main": [
+        [
+          {
+            "node": "Get IVOR Analytics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get IVOR Analytics": {
+      "main": [
+        [
+          {
+            "node": "Analyze IVOR Patterns",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze IVOR Patterns": {
+      "main": [
+        [
+          {
+            "node": "Log to Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "timezone": "Europe/London"
+  },
+  "id": "blkout_community_engagement"
+}

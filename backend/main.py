@@ -12,11 +12,16 @@ import logging
 from dotenv import load_dotenv
 
 from api.routes import chat, health, events
+from api.routes.conversation_history import router as conversation_router
+from api.routes.user_profile import router as profile_router
+from api.community import router as community_router
 from core.config import settings
 from core.database import init_db
 from core.ai_service import AIService
 from core.knowledge_base import KnowledgeBase
 from utils.logging_config import setup_logging
+# Import models to ensure they're registered with SQLAlchemy
+from models.community import *
 
 # Load environment variables
 load_dotenv()
@@ -69,6 +74,9 @@ app.add_middleware(
 app.include_router(health.router, prefix="/health", tags=["health"])
 app.include_router(chat.router, prefix="/chat", tags=["chat"])
 app.include_router(events.router, prefix="/events", tags=["events"])
+app.include_router(conversation_router, prefix="/conversations", tags=["conversations"])
+app.include_router(profile_router, prefix="/profiles", tags=["profiles"])
+app.include_router(community_router, prefix="/api", tags=["community"])
 
 @app.get("/")
 async def root():

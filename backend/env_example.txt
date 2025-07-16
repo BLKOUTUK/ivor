@@ -1,0 +1,54 @@
+# BLKOUT Community Data System - Environment Configuration
+# Copy this file to .env and update with your actual values
+
+# Database Configuration
+DATABASE_URL=postgresql://username:password@localhost:5432/blkout_community
+
+# Redis Configuration (for caching)
+REDIS_URL=redis://localhost:6379/0
+
+# AI Service Configuration
+GROQ_API_KEY=your_groq_api_key_here
+GROQ_MODEL=mixtral-8x7b-32768
+
+# Hugging Face (fallback)
+HUGGINGFACE_API_KEY=your_huggingface_api_key_here
+HUGGINGFACE_MODEL=mistralai/Mixtral-8x7B-Instruct-v0.1
+
+# Application Configuration
+DEBUG=true
+LOG_LEVEL=info
+
+# CORS Configuration
+CORS_ORIGINS=["http://localhost:3000", "http://localhost:5173", "https://blkoutuk.com"]
+
+# BLKOUT Values (used in AI responses)
+BLKOUT_VALUES=[
+    "Black queer liberation through cooperative ownership",
+    "Community-controlled technology and resources",
+    "Authentic storytelling and lived experience",
+    "Intersectional solidarity and mutual aid",
+    "Democratic participation and collective decision-making",
+    "Economic justice and alternative economies",
+    "Healing justice and community care",
+    "Radical transparency and accountability"
+]
+
+# Security Configuration
+SECRET_KEY=your_secret_key_here
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+
+# N8N Configuration (for workflows)
+N8N_WEBHOOK_URL=https://n8n.blkoutuk.com/webhook
+N8N_API_KEY=your_n8n_api_key_here
+
+# External API Keys
+GOOGLE_SHEETS_API_KEY=your_google_sheets_api_key_here
+SLACK_WEBHOOK_URL=your_slack_webhook_url_here
+
+# Feature Flags
+ENABLE_CONVERSATION_STORAGE=true
+ENABLE_COMMUNITY_ANALYTICS=true
+ENABLE_PEER_MATCHING=true
+ENABLE_MONTHLY_REPORTS=true

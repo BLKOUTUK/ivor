@@ -1,0 +1,447 @@
+{
+  "name": "BLKOUT Content Calendar Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "cronExpression": "0 8 * * 1"
+            }
+          ]
+        }
+      },
+      "name": "Monday 8AM Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/YOUR_SHEET_ID/values/Content%20Calendar!A:J",
+        "authentication": "oAuth2",
+        "options": {
+          "headers": {
+            "Content-Type": "application/json"
+          }
+        }
+      },
+      "name": "Get Content Calendar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Process content calendar data\nconst calendarData = $input.all()[0].json.values || [];\nconst headers = calendarData[0] || [];\nconst rows = calendarData.slice(1);\n\n// Get current week's content\nconst currentWeek = new Date().getWeek();\nconst thisWeekContent = rows.filter(row => {\n  const scheduleDate = new Date(row[1]); // Assuming date is in column B\n  return scheduleDate.getWeek() === currentWeek;\n});\n\n// Transform to structured format\nconst weeklyContent = thisWeekContent.map(row => {\n  return {\n    id: row[0],\n    schedule_date: row[1],\n    content_type: row[2],\n    platform: row[3],\n    title: row[4],\n    description: row[5],\n    image_url: row[6],\n    liberation_theme: row[7],\n    target_audience: row[8],\n    status: row[9] || 'pending'\n  };\n});\n\n// Add week number to Date prototype\nDate.prototype.getWeek = function() {\n  const date = new Date(this.getTime());\n  date.setHours(0, 0, 0, 0);\n  date.setDate(date.getDate() + 3 - (date.getDay() + 6) % 7);\n  const week1 = new Date(date.getFullYear(), 0, 4);\n  return 1 + Math.round(((date.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);\n};\n\nreturn weeklyContent.map(content => ({ json: content }));"
+      },
+      "name": "Process Weekly Content",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.content_type}}",
+              "operation": "equal",
+              "value2": "liberation_story"
+            }
+          ]
+        }
+      },
+      "name": "Filter Liberation Stories",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        900,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.content_type}}",
+              "operation": "equal",
+              "value2": "community_spotlight"
+            }
+          ]
+        }
+      },
+      "name": "Filter Community Spotlight",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        900,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.content_type}}",
+              "operation": "equal",
+              "value2": "educational_content"
+            }
+          ]
+        }
+      },
+      "name": "Filter Educational Content",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        900,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Generate liberation story post\nconst story = $input.all()[0].json;\n\nconst instagramPost = {\n  platform: 'instagram',\n  caption: `🔥 ${story.title}\\n\\n${story.description}\\n\\n#BLKOUTStories #${story.liberation_theme.replace(/\\s+/g, '')} #BlackQueerLiberation #CommunityStories`,\n  image_url: story.image_url,\n  scheduled_time: story.schedule_date,\n  hashtags: [\n    '#BLKOUTStories',\n    '#BlackQueerLiberation',\n    '#CommunityStories',\n    '#' + story.liberation_theme.replace(/\\s+/g, '')\n  ]\n};\n\nconst twitterPost = {\n  platform: 'twitter',\n  message: `${story.title}\\n\\n${story.description.substring(0, 200)}...\\n\\n#BLKOUTStories #${story.liberation_theme.replace(/\\s+/g, '')}`,\n  image_url: story.image_url,\n  scheduled_time: story.schedule_date\n};\n\nreturn [\n  { json: instagramPost },\n  { json: twitterPost }\n];"
+      },
+      "name": "Generate Liberation Story Posts",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Generate community spotlight content\nconst spotlight = $input.all()[0].json;\n\nconst linkedinPost = {\n  platform: 'linkedin',\n  message: `🌟 Community Spotlight: ${spotlight.title}\\n\\n${spotlight.description}\\n\\nOur community thrives because of individuals like this who embody our values of ${spotlight.liberation_theme}.\\n\\n#CommunitySpotlight #BLKOUTCommunity #BlackQueerLeadership`,\n  image_url: spotlight.image_url,\n  scheduled_time: spotlight.schedule_date\n};\n\nconst facebookPost = {\n  platform: 'facebook',\n  message: `${spotlight.title}\\n\\n${spotlight.description}\\n\\nTag someone who inspires you in our community! 👇`,\n  image_url: spotlight.image_url,\n  scheduled_time: spotlight.schedule_date\n};\n\nreturn [\n  { json: linkedinPost },\n  { json: facebookPost }\n];"
+      },
+      "name": "Generate Community Spotlight",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Generate educational content\nconst educational = $input.all()[0].json;\n\nconst threadContent = {\n  platform: 'twitter_thread',\n  title: educational.title,\n  content: educational.description,\n  liberation_theme: educational.liberation_theme,\n  scheduled_time: educational.schedule_date,\n  thread_tweets: [\n    `🧵 THREAD: ${educational.title}\\n\\n1/`,\n    `${educational.description.substring(0, 250)}... 2/`,\n    `This is why ${educational.liberation_theme} matters for our community. 3/`,\n    `Want to learn more? Join our community discussions and share your thoughts. 4/4\\n\\n#BLKOUTEducation #${educational.liberation_theme.replace(/\\s+/g, '')}`\n  ]\n};\n\nconst instagramCarousel = {\n  platform: 'instagram_carousel',\n  title: educational.title,\n  slides: [\n    {\n      text: educational.title,\n      design: 'title_slide'\n    },\n    {\n      text: educational.description.substring(0, 150),\n      design: 'content_slide_1'\n    },\n    {\n      text: `Key takeaway: ${educational.liberation_theme}`,\n      design: 'content_slide_2'\n    },\n    {\n      text: 'Join the conversation at blkoutuk.com',\n      design: 'cta_slide'\n    }\n  ],\n  scheduled_time: educational.schedule_date\n};\n\nreturn [\n  { json: threadContent },\n  { json: instagramCarousel }\n];"
+      },
+      "name": "Generate Educational Content",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "requestMethod": "POST",
+        "url": "https://graph.facebook.com/v18.0/YOUR_PAGE_ID/photos",
+        "authentication": "headerAuth",
+        "headerAuth": {
+          "name": "Authorization",
+          "value": "Bearer YOUR_FACEBOOK_ACCESS_TOKEN"
+        },
+        "jsonParameters": true,
+        "bodyParametersJson": "{\n  \"url\": \"{{$json.image_url}}\",\n  \"caption\": \"{{$json.caption}}\",\n  \"published\": false,\n  \"scheduled_publish_time\": \"{{Math.floor(new Date($json.scheduled_time).getTime() / 1000)}}\"\n}"
+      },
+      "name": "Schedule Instagram Post",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        1340,
+        150
+      ]
+    },
+    {
+      "parameters": {
+        "requestMethod": "POST",
+        "url": "https://api.twitter.com/2/tweets",
+        "authentication": "headerAuth",
+        "headerAuth": {
+          "name": "Authorization",
+          "value": "Bearer YOUR_TWITTER_BEARER_TOKEN"
+        },
+        "jsonParameters": true,
+        "bodyParametersJson": "{\n  \"text\": \"{{$json.message}}\"\n}"
+      },
+      "name": "Post to Twitter",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        1340,
+        250
+      ]
+    },
+    {
+      "parameters": {
+        "requestMethod": "POST",
+        "url": "https://api.linkedin.com/v2/ugcPosts",
+        "authentication": "headerAuth",
+        "headerAuth": {
+          "name": "Authorization",
+          "value": "Bearer YOUR_LINKEDIN_ACCESS_TOKEN"
+        },
+        "jsonParameters": true,
+        "bodyParametersJson": "{\n  \"author\": \"urn:li:organization:YOUR_COMPANY_ID\",\n  \"lifecycleState\": \"PUBLISHED\",\n  \"specificContent\": {\n    \"com.linkedin.ugc.ShareContent\": {\n      \"shareCommentary\": {\n        \"text\": \"{{$json.message}}\"\n      },\n      \"shareMediaCategory\": \"IMAGE\",\n      \"media\": [\n        {\n          \"status\": \"READY\",\n          \"media\": \"{{$json.image_url}}\"\n        }\n      ]\n    }\n  },\n  \"visibility\": {\n    \"com.linkedin.ugc.MemberNetworkVisibility\": \"PUBLIC\"\n  }\n}"
+      },
+      "name": "Post to LinkedIn",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        1340,
+        350
+      ]
+    },
+    {
+      "parameters": {
+        "requestMethod": "POST",
+        "url": "https://graph.facebook.com/v18.0/YOUR_PAGE_ID/feed",
+        "authentication": "headerAuth",
+        "headerAuth": {
+          "name": "Authorization",
+          "value": "Bearer YOUR_FACEBOOK_ACCESS_TOKEN"
+        },
+        "jsonParameters": true,
+        "bodyParametersJson": "{\n  \"message\": \"{{$json.message}}\",\n  \"link\": \"{{$json.image_url}}\",\n  \"published\": false,\n  \"scheduled_publish_time\": \"{{Math.floor(new Date($json.scheduled_time).getTime() / 1000)}}\"\n}"
+      },
+      "name": "Schedule Facebook Post",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        1340,
+        450
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Create Twitter thread\nconst threadData = $input.all()[0].json;\nconst tweets = threadData.thread_tweets;\n\nlet previousTweetId = null;\nconst results = [];\n\nfor (let i = 0; i < tweets.length; i++) {\n  const tweetData = {\n    text: tweets[i]\n  };\n  \n  if (previousTweetId) {\n    tweetData.reply = {\n      in_reply_to_tweet_id: previousTweetId\n    };\n  }\n  \n  results.push({ json: tweetData });\n}\n\nreturn results;"
+      },
+      "name": "Create Twitter Thread",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1340,
+        550
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Generate Instagram carousel design\nconst carouselData = $input.all()[0].json;\n\nconst designSpecs = {\n  title: carouselData.title,\n  slides: carouselData.slides,\n  brand_colors: ['#FF6B35', '#004E89', '#1A1A1A'],\n  fonts: {\n    title: 'Montserrat Bold',\n    body: 'Open Sans Regular'\n  },\n  template: 'liberation_education'\n};\n\nreturn [{ json: designSpecs }];"
+      },
+      "name": "Generate Carousel Design",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1340,
+        650
+      ]
+    },
+    {
+      "parameters": {
+        "requestMethod": "POST",
+        "url": "https://api.canva.com/v1/designs",
+        "authentication": "headerAuth",
+        "headerAuth": {
+          "name": "Authorization",
+          "value": "Bearer YOUR_CANVA_ACCESS_TOKEN"
+        },
+        "jsonParameters": true,
+        "bodyParametersJson": "{\n  \"design_type\": \"InstagramPost\",\n  \"name\": \"{{$json.title}} - Carousel\",\n  \"elements\": [\n    {\n      \"type\": \"text\",\n      \"text\": \"{{$json.title}}\",\n      \"font_family\": \"{{$json.fonts.title}}\",\n      \"font_size\": 32,\n      \"color\": \"{{$json.brand_colors[0]}}\"\n    }\n  ]\n}"
+      },
+      "name": "Create Carousel in Canva",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        1560,
+        650
+      ]
+    },
+    {
+      "parameters": {
+        "requestMethod": "POST",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/YOUR_SHEET_ID/values/Published%20Content!A:F:append",
+        "authentication": "oAuth2",
+        "jsonParameters": true,
+        "bodyParametersJson": "{\n  \"range\": \"Published Content!A:F\",\n  \"majorDimension\": \"ROWS\",\n  \"values\": [\n    [\n      \"{{new Date().toISOString()}}\",\n      \"{{$json.platform}}\",\n      \"{{$json.title || $json.message}}\",\n      \"{{$json.liberation_theme}}\",\n      \"{{$json.scheduled_time}}\",\n      \"published\"\n    ]\n  ]\n}"
+      },
+      "name": "Log Published Content",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        1560,
+        400
+      ]
+    }
+  ],
+  "connections": {
+    "Monday 8AM Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Content Calendar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Content Calendar": {
+      "main": [
+        [
+          {
+            "node": "Process Weekly Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Weekly Content": {
+      "main": [
+        [
+          {
+            "node": "Filter Liberation Stories",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Filter Community Spotlight",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Filter Educational Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Liberation Stories": {
+      "main": [
+        [
+          {
+            "node": "Generate Liberation Story Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Community Spotlight": {
+      "main": [
+        [
+          {
+            "node": "Generate Community Spotlight",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Educational Content": {
+      "main": [
+        [
+          {
+            "node": "Generate Educational Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Liberation Story Posts": {
+      "main": [
+        [
+          {
+            "node": "Schedule Instagram Post",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Post to Twitter",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log Published Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Community Spotlight": {
+      "main": [
+        [
+          {
+            "node": "Post to LinkedIn",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Schedule Facebook Post",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log Published Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Educational Content": {
+      "main": [
+        [
+          {
+            "node": "Create Twitter Thread",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Generate Carousel Design",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log Published Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Carousel Design": {
+      "main": [
+        [
+          {
+            "node": "Create Carousel in Canva",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "timezone": "Europe/London"
+  },
+  "id": "blkout_content_calendar"
+}
