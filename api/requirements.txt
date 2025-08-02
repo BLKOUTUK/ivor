@@ -1,0 +1,32 @@
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+websockets==11.0.3
+python-dotenv==1.0.0
+pydantic==2.5.0
+sqlalchemy==2.0.23
+alembic==1.12.1
+psycopg2-binary==2.9.7
+redis==5.0.1
+httpx==0.25.2
+chromadb==0.4.15
+sentence-transformers==2.2.2
+openai==1.3.8
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+huggingface-hub==0.19.4
+groq==0.4.1
+transformers==4.35.2
+
+# SQLite Database System Dependencies
+click==8.1.7
+asyncio-throttle==1.0.2
+pydantic-settings==2.2.1
+
+# Token Optimization System Dependencies (removed heavy ML deps for Vercel)
+# numpy==1.24.3
+# scikit-learn==1.3.2
+aiohttp==3.9.1
+beautifulsoup4==4.12.2
+# pandas==2.1.4
+# nltk==3.8.1

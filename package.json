@@ -1,0 +1,52 @@
+{
+  "name": "blkout-ivor-platform",
+  "version": "2.0.0",
+  "description": "BLKOUT Community AI Platform - Liberation through Technology",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "start": "vite preview --port $PORT --host",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "framer-motion": "^10.16.4",
+    "lucide-react": "^0.292.0",
+    "gsap": "^3.12.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/react": "^18.2.37",
+    "@types/react-dom": "^18.2.15",
+    "@typescript-eslint/eslint-plugin": "^6.10.0",
+    "@typescript-eslint/parser": "^6.10.0",
+    "@vitejs/plugin-react": "^4.1.0",
+    "eslint": "^8.53.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.4.4",
+    "typescript": "^5.2.2",
+    "vite": "^4.5.0"
+  },
+  "keywords": [
+    "community",
+    "liberation",
+    "lgbtq",
+    "black-owned",
+    "cooperative",
+    "ai",
+    "mutual-aid"
+  ],
+  "author": "BLKOUT UK",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/blkoutuk/ivor-platform.git"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
